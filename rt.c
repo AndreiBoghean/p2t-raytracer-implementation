@@ -19,11 +19,11 @@ int main(void) {
 	double vD = vx*Dx + vy*Dy + vz*Dz ;
 	double disc = vD*vD - D2 + r2;
 
-	printf("The discriminant is %06.2f for the case of:\n", disc);
-	printf("Ray\torigin: (%06.2f, %06.2f, %06.2f)\n", ux, uy, uz);
-	printf("\tdirection: (%06.2f, %06.2f, %06.2f)\n", vx, vy, vz);
-	printf("Sphere\tcentre: (%06.2f, %06.2f, %06.2f)\n", cx, cy, cz);
-	printf("\tradius squared: %06.2f\n", r2);
+
+	if (disc < 0) //discriminant is negative so no intersection
+		{ printf(" "); }
+	else //grazing or full intersection
+		{ printf("X"); }
 
 	return 0;
 }
