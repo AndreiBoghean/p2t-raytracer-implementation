@@ -134,7 +134,8 @@ int main(void)
 			double temp[3] = {0, 0, 1};
 			*R.v = *temp; // a ray along the z direction
 
-			double d = trace(SS[0], R);
+
+			double d = check_spheres(R, sphereCount, SS).dist;
 
 			if (d == INFINITY)
 			{
