@@ -15,6 +15,7 @@
 struct sphere
 {
 	double c[3]; // x,y,z components of sphere centre
+	double r; // radius of the sphere
 	double r2; // radius of the sphere, squared
 };
 
@@ -84,6 +85,69 @@ double trace(struct sphere s, struct ray R)
 	}
 }
 
+void reflect(struct intersect ii, struct ray *Rp) {
+	// note: best to start with the abstract-est level of understanding by reading from the bottom up
+	/*
+	intersection_point = Rp.origin + ii.distance * Rp.direction
+	normal_vect = ii.sphere.origin - intersection_point
+	normal_unit_vect = normal_vect / |normal_vect|
+	component_parallel_to_normal = dot_prod(old_ray, normal_vect) * normal_unit_vect
+	new_ray = old_ray - 2 * component_parallel_to_normal
+	*/
+
+	// intersection_point = Rp.origin + ii.distance * Rp.direction
+	double intersection_point[3] = {0, 0, 0};
+	for (int k=0 ; k<3 ; k++)
+		intersection_point[k] += Rp->u[k] + ii.dist * Rp->v[k];
+
+	// normal_vect = ii.sphere.origin - intersection_point
+	double normal_vect[3] = {0, 0, 0};
+	for (int k=0 ; k<3 ; k++)
+		normal_vect[k] += ii.S->c[k] - intersection_point[k];
+
+	// normal_unit_vect = normal_vect / |normal_vect|
+
+	//double normal_vect_mag = 0;
+	//for (int k=0 ; k<3 ; k++)
+	//	normal_vect_mag += normal_vect[k]*normal_vect[k];
+	//normal_vect_mag = fast_sqrt(normal_vect_mag);
+
+	double normal_unit_vect[3] = {0, 0, 0};
+	for (int k=0 ; k<3 ; k++)
+		normal_unit_vect[k] += normal_vect[k] / ii.S->r;
+
+	// component_parallel_to_normal = dot_prod(old_ray, normal_unit_vect) * normal_unit_vect
+	double dot_prod = 0;
+	for (int k=0 ; k<3 ; k++)
+		dot_prod += intersection_point[k]*normal_unit_vect[k];
+
+	double component_parallel_to_normal[3] = {0, 0, 0};
+	for (int k=0 ; k<3 ; k++)
+		component_parallel_to_normal[k] += dot_prod * normal_unit_vect[k];
+
+	// new_ray = old_ray - 2 * component_parallel_to_normal
+	double new_ray[3];
+	*new_ray = *intersection_point;
+
+	for (int k=0 ; k<3 ; k++)
+		new_ray[k] -= 2 * component_parallel_to_normal[k];
+
+	// now we need to turn this new ray into the format of u + d*v
+	// we know u = intersection_point
+	// we can get v by normalising new_ray
+
+	*Rp->u = *intersection_point;
+
+	double new_ray_mag = 0;
+	for (int k=0 ; k<3 ; k++)
+		new_ray_mag += new_ray[k]*new_ray[k];
+	new_ray_mag = fast_sqrt(new_ray_mag);
+
+	for (int k=0 ; k<3 ; k++)
+		Rp->v[k] = new_ray[k]/new_ray_mag;
+}
+
+
 struct intersect check_spheres(struct ray R, int maxs, const struct sphere SS[maxs])
 {
 	struct intersect ii = {.dist = INFINITY, .S = NULL};
@@ -112,30 +176,48 @@ int main(void)
 		printf("please enter the x, y, and z value for sphere %d in format x,y,z\n", i);
 		scanf("%lf,%lf,%lf", &SS[i].c[0], &SS[i].c[1], &SS[i].c[2]);
 		printf("please enter radius of the sphere\n");
-		scanf("%lf", &SS[i].r2);
-		SS[i].r2 *= SS[i].r2; // we store r^2 but the user gave us r
+		scanf("%lf", &SS[i].r);
+		SS[i].r2 = SS[i].r*SS[i].r; // we store r^2 but the user gave us r
 	}
 
 
-	struct ray R = { .u = {0, 0, 0}, .v = {0, 0, 1} };
+	//struct ray R = { .u = {0, 0, 0}, .v = {0, 0, 1} };
 	// ^ note that the plane from which the orthographic projection starts from
 	// does not vary in z only in x and y. z will not change from the inital value of 0.
 
 	for (int j=0; j<verticalRayCount ; j++ )
 	{
-		R.u[1] = (2 * j/((double)verticalRayCount)) - 1;
+		//R.u[1] = (2 * j/((double)verticalRayCount)) - 1;
 		// ^ scale any number of rays down to a range from -1 to 1 (exclusive (since we want the side of our "pixels" to be touching the side of the viewport, rather than the pixels being centered on the side of the viewport.))
 
 		for (int i=0 ; i<horizontalRayCount ; i++ )
 		{
-			R.u[0] = (2 * i/((double)horizontalRayCount)) - 1;
+			//R.u[0] = (2 * i/((double)horizontalRayCount)) - 1;
 			// ^ scale any number of rays down to a range from -1 to 1 (exclusive (since we want the side of our "pixels" to be touching the side of the viewport, rather than the pixels being centered on the side of the viewport.))
+
+			// alternate code to generate a whole new ray object each loop.
+			// (this was needed because we altered the code such that reflections modify the original ray)
+			// and thusly reusing the same ray which hash now been modified will not work.
+			// (also, conceptually it does not make sense to essentially take the same photon and reuse it)
+			struct ray R = {
+				.u = {
+						(2 * i/((double)horizontalRayCount)) - 1,
+						(2 * j/((double)verticalRayCount)) - 1,
+						0
+				},
+				.v = {
+					0,
+					0,
+					1
+				}
+			};
 
 			double temp[3] = {0, 0, 1};
 			*R.v = *temp; // a ray along the z direction
 
 
-			double d = check_spheres(R, sphereCount, SS).dist;
+			struct intersect ii = check_spheres(R, sphereCount, SS);
+			double d = ii.dist;
 
 			if (d == INFINITY)
 			{
@@ -144,7 +226,9 @@ int main(void)
 			else
 			{
 				printf("X");
+				reflect(ii, &R);
 			}
+
 		}
 		printf("\n");
 	}
