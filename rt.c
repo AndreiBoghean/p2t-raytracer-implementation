@@ -11,6 +11,7 @@
 #define N 30
 #define M 30
 #define MAXS 4
+#define MAX_REFLECTS 8
 
 struct sphere
 {
@@ -96,38 +97,39 @@ void reflect(struct intersect ii, struct ray *Rp) {
 	*/
 
 	// intersection_point = Rp.origin + ii.distance * Rp.direction
-	double intersection_point[3] = {0, 0, 0};
+	double intersection_point[3];
 	for (int k=0 ; k<3 ; k++)
-		intersection_point[k] += Rp->u[k] + ii.dist * Rp->v[k];
+		intersection_point[k] = Rp->u[k] + ii.dist * Rp->v[k];
 
 	// normal_vect = ii.sphere.origin - intersection_point
-	double normal_vect[3] = {0, 0, 0};
+	double normal_vect[3];
 	for (int k=0 ; k<3 ; k++)
-		normal_vect[k] += ii.S->c[k] - intersection_point[k];
+		normal_vect[k] = ii.S->c[k] - intersection_point[k];
 
 	// normal_unit_vect = normal_vect / |normal_vect|
 
-	//double normal_vect_mag = 0;
-	//for (int k=0 ; k<3 ; k++)
-	//	normal_vect_mag += normal_vect[k]*normal_vect[k];
-	//normal_vect_mag = fast_sqrt(normal_vect_mag);
-
-	double normal_unit_vect[3] = {0, 0, 0};
+	double normal_vect_mag = 0;
 	for (int k=0 ; k<3 ; k++)
-		normal_unit_vect[k] += normal_vect[k] / ii.S->r;
+		normal_vect_mag += normal_vect[k]*normal_vect[k];
+	normal_vect_mag = fast_sqrt(normal_vect_mag);
+
+	double normal_unit_vect[3];
+	for (int k=0 ; k<3 ; k++)
+		normal_unit_vect[k] = normal_vect[k] / ii.S->r;
 
 	// component_parallel_to_normal = dot_prod(old_ray, normal_unit_vect) * normal_unit_vect
 	double dot_prod = 0;
 	for (int k=0 ; k<3 ; k++)
 		dot_prod += intersection_point[k]*normal_unit_vect[k];
 
-	double component_parallel_to_normal[3] = {0, 0, 0};
+	double component_parallel_to_normal[3];
 	for (int k=0 ; k<3 ; k++)
-		component_parallel_to_normal[k] += dot_prod * normal_unit_vect[k];
+		component_parallel_to_normal[k] = dot_prod * normal_unit_vect[k];
 
 	// new_ray = old_ray - 2 * component_parallel_to_normal
 	double new_ray[3];
-	*new_ray = *intersection_point;
+	for (int k=0 ; k<3 ; k++)
+		new_ray[k] = intersection_point[k];
 
 	for (int k=0 ; k<3 ; k++)
 		new_ray[k] -= 2 * component_parallel_to_normal[k];
@@ -136,15 +138,22 @@ void reflect(struct intersect ii, struct ray *Rp) {
 	// we know u = intersection_point
 	// we can get v by normalising new_ray
 
+
+	//double new_ray_mag = 0;
+	//for (int k=0 ; k<3 ; k++)
+	//	new_ray_mag += new_ray[k]*new_ray[k];
+	//new_ray_mag = fast_sqrt(new_ray_mag);
+
+	for (int k=0 ; k<3 ; k++)
+		Rp->v[k] = new_ray[k];///new_ray_mag;
+
+	// update the origin, but also move it *away* from the true point of intersection,
+	// towards the new reflected direction
+	// (in order to not have it intersect with the sphere it just collided with)
+	// (note to do this with the *new* direction vector)
 	*Rp->u = *intersection_point;
-
-	double new_ray_mag = 0;
 	for (int k=0 ; k<3 ; k++)
-		new_ray_mag += new_ray[k]*new_ray[k];
-	new_ray_mag = fast_sqrt(new_ray_mag);
-
-	for (int k=0 ; k<3 ; k++)
-		Rp->v[k] = new_ray[k]/new_ray_mag;
+		Rp->u[k] += 1e-6 * Rp->v[k];
 }
 
 
@@ -165,9 +174,45 @@ struct intersect check_spheres(struct ray R, int maxs, const struct sphere SS[ma
 	return ii;
 }
 
-int main(void)
+// a function which fully traces out a ray's path among spheres, and returns the number of hits
+int trace_path(struct ray R, int maxs, const struct sphere SS[maxs], int max_reflect, int reflected) {
+	//printf("checking for hit %d\n", reflected);
+	if (reflected >= max_reflect)
+		return reflected;
+
+	struct intersect ii = check_spheres(R, maxs, SS);
+
+	if (ii.S)
+	{
+		reflect(ii, &R);
+		return trace_path(R, maxs, SS, max_reflect, reflected+1);
+	}
+	else
+		return reflected;
+}
+
+int main(int argc, char * argv[])
 {
-	int horizontalRayCount=N, verticalRayCount=M, sphereCount=MAXS;
+	int horizontalRayCount=N, verticalRayCount=M, sphereCount=MAXS, maxReflections=MAX_REFLECTS;
+
+	if (argc == 5)
+	{
+		sscanf(argv[1], "%d", &horizontalRayCount);
+		sscanf(argv[2], "%d", &verticalRayCount);
+		sscanf(argv[3], "%d", &sphereCount);
+		sscanf(argv[4], "%d", &maxReflections);
+	}
+	else if (argc == 4)
+	{
+		sscanf(argv[1], "%d", &horizontalRayCount);
+		sscanf(argv[2], "%d", &verticalRayCount);
+		sscanf(argv[3], "%d", &sphereCount);
+	}
+	else if (argc == 3)
+	{
+		sscanf(argv[1], "%d", &horizontalRayCount);
+		sscanf(argv[2], "%d", &verticalRayCount);
+	}
 
 	struct sphere SS[sphereCount];
 
@@ -199,36 +244,25 @@ int main(void)
 			// (this was needed because we altered the code such that reflections modify the original ray)
 			// and thusly reusing the same ray which hash now been modified will not work.
 			// (also, conceptually it does not make sense to essentially take the same photon and reuse it)
-			struct ray R = {
-				.u = {
-						(2 * i/((double)horizontalRayCount)) - 1,
-						(2 * j/((double)verticalRayCount)) - 1,
-						0
+			struct ray R =
+			{
+				.u =
+				{
+					(2 * i/((double)horizontalRayCount)) - 1,
+					(2 * j/((double)verticalRayCount)) - 1,
+					0
 				},
-				.v = {
+				.v =
+				{
 					0,
 					0,
 					1
 				}
 			};
 
-			double temp[3] = {0, 0, 1};
-			*R.v = *temp; // a ray along the z direction
+			int hitCount = trace_path(R, sphereCount, SS, 8, 0);
 
-
-			struct intersect ii = check_spheres(R, sphereCount, SS);
-			double d = ii.dist;
-
-			if (d == INFINITY)
-			{
-				printf(" ");
-			}
-			else
-			{
-				printf("X");
-				reflect(ii, &R);
-			}
-
+			printf(hitCount > 0 ? "%d" : " ", hitCount);
 		}
 		printf("\n");
 	}
