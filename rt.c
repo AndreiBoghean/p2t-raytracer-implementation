@@ -111,7 +111,6 @@ void reflect(struct intersect ii, struct ray *Rp) {
 		normal_vect[k] = intersection_point[k] - ii.S->c[k];
 
 	// normal_unit_vect = normal_vect / |normal_vect|
-
 	// note that beacuse we obtain normal_vect by intersection_point minus sphere_center,
 	// normal_vect's magnitude is simply the radius of the sphere.
 
