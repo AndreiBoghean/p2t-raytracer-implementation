@@ -9,6 +9,7 @@
 #include <math.h>
 #include "trace.h"
 #include "structs.h"
+#include "lodepng/lodepng.h"
 
 
 #define N 30
@@ -17,48 +18,6 @@
 #define MAX_REFLECTS 8
 
 
-static int _trace_path(struct ray R, int maxs, const struct sphere SS[maxs], int max_reflect, int reflected, float colour[3]) {
-	//printf("checking for hit %d\n", reflected);
-	if (reflected >= max_reflect)
-		return reflected;
-
-	struct intersect ii = check_spheres(R, maxs, SS);
-
-	if (ii.S)
-	{
-		reflect(ii, &R);
-		for (int k=0 ; k<3 ; k++)
-			colour[k] *= ii.S->colour[k];
-		return _trace_path(R, maxs, SS, max_reflect, reflected+1, colour);
-	}
-	else
-		return reflected;
-}
-
-// a function which fully traces out a ray's path among spheres, and returns the number of hits
-int trace_path(struct ray R, int maxs, const struct sphere SS[maxs], int max_reflect, int reflected, float colour[3]) {
-	//float[3] temp = {0.0, 0.0, 0.0};
-	//*colour = *temp;
-	if (reflected >= max_reflect)
-	{
-		for (int k=0 ; k<3 ; k++) colour[k] = 0.0;
-		return 0;
-	}
-
-	struct intersect ii = check_spheres(R, maxs, SS);
-
-
-	if (ii.S)
-	{
-		reflect(ii, &R);
-		for (int k=0 ; k<3 ; k++)
-			colour[k] *= ii.S->colour[k];
-		return _trace_path(R, maxs, SS, max_reflect, reflected+1, colour);
-	}
-
-	for (int k=0 ; k<3 ; k++) colour[k] = 0.0;
-	return 0;
-}
 
 int main(int argc, char * argv[])
 {
@@ -135,20 +94,20 @@ int main(int argc, char * argv[])
 				}
 			};
 
-			float colours[3] = {0.0};
-			int hitCount = trace_path(R, sphereCount, SS, maxReflections, 0, colours);
+			float colour[3] = {1.0, 1.0, 1.0};
+			int hitCount = trace_path(R, sphereCount, SS, maxReflections, 0, colour);
 
 			// this line is only useful if we switch from multiplicative to an average of colours.
 			// since that will mean we no longer haveto multiply by 255
 			//*image[verticalRayCount][horizontalRayCount] = *colours;
 			for (int k=0 ; k<3 ; k++)
-				image[verticalRayCount][horizontalRayCount][k] = 255 * colours[k];
+				image[j][i][k] = 255 * colour[k];
 			//printf(hitCount > 0 ? "%d" : " ", hitCount);
 		}
 		//printf("\n");
 	}
 
-
+	lodepng_encode24_file("render.png", (const unsigned char *) image, horizontalRayCount, verticalRayCount);
 	return 0;
 }
 

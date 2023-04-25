@@ -135,3 +135,38 @@ void reflect(struct intersect ii, struct ray *Rp) {
 	for (int k=0 ; k<3 ; k++)
 		Rp->u[k] = intersection_point[k] + 1e-6 * Rp->v[k];
 }
+
+static int _trace_path(struct ray R, int maxs, const struct sphere SS[maxs], int max_reflect, int reflected, float colour[3]) {
+	if (reflected >= max_reflect) return reflected;
+
+    struct intersect ii = check_spheres(R, maxs, SS);
+
+	if (ii.S)
+	{
+		reflect(ii, &R);
+		for (int k=0 ; k<3 ; k++) colour[k] *= ii.S->colour[k];
+		return _trace_path(R, maxs, SS, max_reflect, reflected+1, colour);
+	}
+	else
+		return reflected;
+}
+
+// a function which fully traces out a ray's path among spheres, and returns the number of hits
+int trace_path(struct ray R, int maxs, const struct sphere SS[maxs], int max_reflect, int reflected, float colour[3]) {
+	if (reflected >= max_reflect) return reflected;
+
+	struct intersect ii = check_spheres(R, maxs, SS);
+
+	if (ii.S)
+	{
+		reflect(ii, &R);
+		for (int k=0 ; k<3 ; k++) colour[k] *= ii.S->colour[k];
+		return _trace_path(R, maxs, SS, max_reflect, reflected+1, colour);
+	}
+	else
+	{
+		for (int k=0 ; k<3 ; k++) colour[k] = 0.0;
+		return reflected;
+	}
+
+}
