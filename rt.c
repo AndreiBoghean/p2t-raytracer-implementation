@@ -32,12 +32,6 @@ struct intersect
 	const struct sphere *S; // pointer to the sphere object that was hit.
 };
 
-double fast_sqrt(double x)
-{
-	asm("sqrtsd %0, %0" : "=v" (x) : "v" (x) );
-	return x;
-}
-
 double trace(struct sphere s, struct ray R)
 {
 	double D[3], D2=0, vD=0, disc=s.r2;
@@ -63,7 +57,7 @@ double trace(struct sphere s, struct ray R)
 	}
 	else // full intersection (disc > 0)
 	{
-		disc = fast_sqrt(disc); // note: the root of the discriminant (sqrt(b^2-4ac)) gives the distance between 2 factors of a quadratic
+		disc = sqrt(disc); // note: the root of the discriminant (sqrt(b^2-4ac)) gives the distance between 2 factors of a quadratic
 
 		if (vD < 0) // if center of sphere is in the direction of the ray...
 		{
@@ -139,7 +133,7 @@ void reflect(struct intersect ii, struct ray *Rp) {
 	double new_ray_mag = 0;
 	for (int k=0 ; k<3 ; k++)
 		new_ray_mag += new_ray[k]*new_ray[k];
-	new_ray_mag = fast_sqrt(new_ray_mag);
+	new_ray_mag = sqrt(new_ray_mag);
 
 	for (int k=0 ; k<3 ; k++)
 		Rp->v[k] = new_ray[k]/new_ray_mag;
