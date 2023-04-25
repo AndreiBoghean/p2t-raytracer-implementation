@@ -6,6 +6,7 @@ struct sphere
 	double c[3]; // x,y,z components of sphere centre
 	double r; // radius of the sphere
 	double r2; // radius of the sphere, squared
+	float colour[3]; // R G B [0.0: 1.0]
 };
 
 struct ray // ray = u + d*v
