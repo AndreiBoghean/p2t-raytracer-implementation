@@ -9,7 +9,7 @@ $(outp): $(OBJ_PREREQS)
 *.o: *.c
 	$(CC) $(CLAFGS) -o $@ -c $<
 
-phony: clean
+.phony: clean
 
 clean:
 	rm -rf $(OBJ_PREREQS); \
