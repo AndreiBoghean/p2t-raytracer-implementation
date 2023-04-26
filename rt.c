@@ -17,6 +17,29 @@
 #define MAXS 4
 #define MAX_REFLECTS 8
 
+int parse_file(int maxs, struct sphere SS[maxs], char* filename)
+{
+	FILE* fp = fopen(filename, "r");
+	if (NULL == fp) return -1; // file open failed, giving up and returning -1.
+
+	for (int i=0 ; i<maxs ; i++)
+	{
+		char buffer[7] = {0};
+		if (NULL == fgets(buffer, 7, fp)) return -1; // file read failed, giving up and returning 1.
+		if (0 != strcmp("SPHERE", buffer)) continue;
+
+		fscanf(fp, " %lf %lf %lf %lf %f %f %f\n", &SS[i].c[0], &SS[i].c[1], &SS[i].c[2], &SS[i].r, &SS[i].colour[0], &SS[i].colour[1], &SS[i].colour[2]);
+
+		SS[i].r2 = SS[i].r*SS[i].r; // we store r^2 but the user gave us r
+		for (int k=0 ; k<3 ; k++)
+			if (SS[i].colour[k] > 1.0) SS[i].colour[k] = 1.0;
+			else if (SS[i].colour[k] < 0.0) SS[i].colour[k] = 0.0;
+	}
+
+	fclose(fp);
+	fp = NULL;
+	return 0;
+}
 
 
 int main(int argc, char * argv[])
@@ -44,19 +67,7 @@ int main(int argc, char * argv[])
 
 	struct sphere SS[sphereCount];
 
-	for (int i=0 ; i<sphereCount ; i++)
-	{
-		printf("please enter the x, y, and z value for sphere %d in format x,y,z\n", i);
-		scanf("%lf,%lf,%lf", &SS[i].c[0], &SS[i].c[1], &SS[i].c[2]);
-		printf("please enter radius of the sphere\n");
-		scanf("%lf", &SS[i].r);
-		SS[i].r2 = SS[i].r*SS[i].r; // we store r^2 but the user gave us r
-		printf("please enter the R, G, and B value for sphere %d in format R,G,B in the range [0,0: 1.0]\n", i);
-		scanf("%f,%f,%f", &SS[i].colour[0], &SS[i].colour[1], &SS[i].colour[2]);
-		for (int k=0 ; k<3 ; k++)
-			if (SS[i].colour[k] > 1.0) SS[i].colour[k] = 1.0;
-			else if (SS[i].colour[k] < 0.0) SS[i].colour[k] = 0.0;
-	}
+	if (0 != parse_file(sphereCount, SS, "scene")) return 1;
 
 	unsigned char image[verticalRayCount][horizontalRayCount][3];
 
