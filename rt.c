@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h> // standard library, includes stuff for random numbers
 #include "trace.h"
 #include "structs.h"
 #include "lodepng/lodepng.h"
@@ -105,17 +106,39 @@ int main(int argc, char * argv[])
 				}
 			};
 
-			float colour[3] = {1.0, 1.0, 1.0};
-			int hitCount = trace_path(R, sphereCount, SS, maxReflections, 0, colour);
+			float colour[3] = {0.0, 0.0, 0.0};
+
+			int subray_i;
+			for (subray_i=0 ; subray_i<100 ; subray_i++)
+			{
+				struct ray nR = R;
+				double dx, dy;
+
+				do
+				{
+					double dx = ( 2.0 * rand() / (double) RAND_MAX ) - 1.0;
+					double dy = ( 2.0 * rand() / (double) RAND_MAX ) - 1.0;
+				}
+				while (dx*dx + dy*dy > 1.0);
+
+				// scale down to 3*pixelWidth
+				// (3* in order to simulate being slightly out of focus)
+				nR.u[0] += 3*dx/horizontalRayCount;
+				nR.u[1] += 3*dy/verticalRayCount;
+
+				float _colour[3] = {1.0, 1.0, 1.0};
+				trace_path(nR, sphereCount, SS, maxReflections, 0, _colour);
+				for (int k=0 ; k<3 ; k++) colour[k] += _colour[k];
+			}
+
+			for (int k=0 ; k<3 ; k++) colour[k] /= (subray_i+1);
 
 			// this line is only useful if we switch from multiplicative to an average of colours.
 			// since that will mean we no longer haveto multiply by 255
 			//*image[verticalRayCount][horizontalRayCount] = *colours;
 			for (int k=0 ; k<3 ; k++)
 				image[j][i][k] = 255 * colour[k];
-			//printf(hitCount > 0 ? "%d" : " ", hitCount);
 		}
-		//printf("\n");
 	}
 
 	lodepng_encode24_file("render.png", (const unsigned char *) image, horizontalRayCount, verticalRayCount);
